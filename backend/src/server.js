@@ -1,6 +1,7 @@
 import express from 'express';
 import path from 'path';
 import  { ENV } from './lib/env.js';
+import { connectDB } from './lib/db.js';
 
 
 const app = express();
