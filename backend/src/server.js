@@ -1,9 +1,10 @@
 import express from 'express';
+import path from 'path';
 import  { ENV } from './lib/env.js';
 
 
 const app = express();
-
+const __dirname = path.resolve();
 
 // make our app ready for deployment
 if (ENV.NODE_ENV === "production") {
