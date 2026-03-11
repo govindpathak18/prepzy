@@ -1,14 +1,19 @@
+import { SignedIn, SignedOut, SignInButton, SignOutButton, UserButton } from "@clerk/clerk-react";
+import { useEffect } from "react";
 
-import { SignedIn, SignedOut, SignInButton, SignOutButton, UserButton } from '@clerk/clerk-react'
-import './App.css'
+const API = import.meta.env.VITE_API_URL;
 
 function App() {
+  useEffect(() => {
+    fetch(`${API}/api/test`)
+      .then(res => res.json())
+      .then(data => console.log(data));
+  }, []);
 
   return (
     <>
-      <h1>Welcome to prepzy</h1>
       <SignedOut>
-        <SignInButton mode='modal'/>
+        <SignInButton mode="modal" />
       </SignedOut>
 
       <SignedIn>
@@ -16,7 +21,7 @@ function App() {
         <UserButton />
       </SignedIn>
     </>
-  )
+  );
 }
 
-export default App
+export default App;

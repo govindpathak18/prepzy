@@ -8,6 +8,10 @@ const __dirname = path.resolve();
 
 app.use(express.json());
 
+app.get("/api/test", (req, res) => {
+  res.json({ message: "API working" });
+});
+
 // serve frontend
 if (ENV.NODE_ENV === "production") {
   app.use(express.static(path.join(__dirname, "../../frontend/dist")));
