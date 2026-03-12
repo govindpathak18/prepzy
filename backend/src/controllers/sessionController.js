@@ -11,21 +11,17 @@ export async function createSession(req, res) {
       return res.status(400).json({ message: "Problem and difficulty are required" });
     }
 
-    // generate a unique call id for stream video
     const callId = `session_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
-    // create session in db
-    const session = await Session.create({ problem, difficulty, host: userId, callId });
-
-    // create stream video call
+    // Create Stream video call
     await streamClient.video.call("default", callId).getOrCreate({
       data: {
         created_by_id: clerkId,
-        custom: { problem, difficulty, sessionId: session._id.toString() },
+        custom: { problem, difficulty },
       },
     });
 
-    // chat messaging
+    //  Create Stream chat channel
     const channel = chatClient.channel("messaging", callId, {
       name: `${problem} Session`,
       created_by_id: clerkId,
@@ -34,10 +30,22 @@ export async function createSession(req, res) {
 
     await channel.create();
 
+    //  Only after Stream succeeds → save session in DB
+    const session = await Session.create({
+      problem,
+      difficulty,
+      host: userId,
+      callId,
+    });
+
     res.status(201).json({ session });
+
   } catch (error) {
     console.log("Error in createSession controller:", error.message);
-    res.status(500).json({ message: "Internal Server Error" });
+
+    res.status(500).json({
+      message: "Error creating session. Please try again.",
+    });
   }
 }
 
@@ -118,6 +126,15 @@ export async function joinSession(req, res) {
 
     const channel = chatClient.channel("messaging", session.callId);
     await channel.addMembers([clerkId]);
+    try {
+      const channel = chatClient.channel("messaging",session.callId);
+      await channel.addMembers([clerkId])
+    } catch (channelError) {
+     // remove participant from the session
+     session.participant = null;
+     await session.save()
+     throw channelError
+    }
 
     res.status(200).json({ session });
   } catch (error) {
