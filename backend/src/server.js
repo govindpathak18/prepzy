@@ -5,19 +5,23 @@ import { connectDB } from "./lib/db.js";
 import cors from "cors";
 import { serve } from "inngest/express";
 import { inngest,functions } from "./lib/inngest.js";
+import { clerkMiddleware } from "@clerk/express";
+import chatRoutes from "./routes/chatRoutes.js";
 
 const app = express();
 const __dirname = path.resolve();
 
+app.use(clerkMiddleware()); // this adds auth feild to reques object,: req.auth()
 app.use(express.json());
 
 // credentials:true meaning?? => server allows a browser to include cookies on request
 app.use(cors({ origin: ENV.CLIENT_URL, credentials: true }));
 app.use("/api/inngest", serve({ client: inngest, functions }));
 
-app.get("/api/test", (req, res) => {
-  res.json({ message: "API working" });
+app.use("/api/test", (req, res) => {
+  res.json({ message: "api testing " });
 });
+app.use("/api.chat",chatRoutes);
 
 // serve frontend
 if (ENV.NODE_ENV === "production") {
