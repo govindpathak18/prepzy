@@ -20,5 +20,8 @@
   "bugs": {
     "url": "https://github.com/govindpathak18/prepzy/issues"
   },
-  "homepage": "https://github.com/govindpathak18/prepzy#readme"
+  "homepage": "https://github.com/govindpathak18/prepzy#readme",
+  "dependencies": {
+    "cors": "^2.8.6"
+  }
 }
