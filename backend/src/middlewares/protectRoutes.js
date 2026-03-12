@@ -5,7 +5,7 @@ export const ProtectRoute = [
     requireAuth(), // check if user is authenticated using Clerk, adds auth() method to req object
     async (req, res, next) => {
         try {
-            const clerkId = req.auth().userId;
+            const { userId: clerkId } = req.auth();
             if (!clerkId) return res.status(401).json({ message: "Unauthorized, invalid token" });
 
             //find user in db
