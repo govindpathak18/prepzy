@@ -1,5 +1,5 @@
-import { StreamChat } from "stream-chat";
-import { StreamClient } from "@stream-io/node-sdk";
+import { StreamChat } from "stream-chat"; //for chat features
+import { StreamClient } from "@stream-io/node-sdk"; //for video call features
 import { ENV } from "./env.js";
 
 const apiKey = ENV.STREAM_API_KEY;

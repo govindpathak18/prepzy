@@ -7,21 +7,24 @@ import { serve } from "inngest/express";
 import { inngest,functions } from "./lib/inngest.js";
 import { clerkMiddleware } from "@clerk/express";
 import chatRoutes from "./routes/chatRoutes.js";
+import sessionRoutes from "./routes/sessionRoutes.js";
 
 const app = express();
 const __dirname = path.resolve();
+
+app.use("/api/test", (req, res) => {
+  res.json({ message: "api testing " });
+});
 
 app.use(clerkMiddleware()); // this adds auth feild to reques object,: req.auth()
 app.use(express.json());
 
 // credentials:true meaning?? => server allows a browser to include cookies on request
 app.use(cors({ origin: ENV.CLIENT_URL, credentials: true }));
-app.use("/api/inngest", serve({ client: inngest, functions }));
 
-app.use("/api/test", (req, res) => {
-  res.json({ message: "api testing " });
-});
-app.use("/api.chat",chatRoutes);
+app.use("/api/inngest", serve({ client: inngest, functions }));
+app.use("/api/chat",chatRoutes);
+app.use("/api/sessions",sessionRoutes);
 
 // serve frontend
 if (ENV.NODE_ENV === "production") {
@@ -36,7 +39,7 @@ const startServer = async () => {
   try {
     await connectDB();
     app.listen(ENV.PORT, () =>
-      console.log("Server is running on port:", ENV.PORT)
+      console.log("🎉 Server is running on port:", ENV.PORT)
     );
   } catch (error) {
     console.error("💥 Error starting the server", error);

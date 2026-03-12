@@ -27,6 +27,8 @@ const syncUser = inngest.createFunction(
       name: newUser.name,
       image: newUser.profileImage,
     });
+
+    //CHALLANGE : send welcome email or do other onboarding tasks here
   }
 );
 
