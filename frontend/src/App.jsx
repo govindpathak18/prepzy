@@ -1,25 +1,21 @@
-import { SignedIn, SignedOut, SignInButton, SignOutButton, UserButton } from "@clerk/clerk-react";
-import { useEffect } from "react";
 
-const API = import.meta.env.VITE_API_URL;
+import { Routes, Route, Navigate } from "react-router";
+import HomePage from "./pages/HomePage";
+import ProblemsPage from "./pages/ProblemsPage";
+import { Toaster } from "react-hot-toast"
+
 
 function App() {
-  useEffect(() => {
-    fetch(`${API}/api/test`)
-      .then(res => res.json())
-      .then(data => console.log(data));
-  }, []);
+
+  const { isSignedIn } = useUser()
 
   return (
     <>
-      <SignedOut>
-        <SignInButton mode="modal" />
-      </SignedOut>
-
-      <SignedIn>
-        <SignOutButton />
-        <UserButton />
-      </SignedIn>
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/problems" element={isSignedIn ? <ProblemsPage /> : <Navigate to={"/"} />} />
+      </Routes>
+      <Toaster toastOptions={{ duration: 3000 }} />
     </>
   );
 }
