@@ -6,11 +6,11 @@ export async function getStreamToken(req, res) {
         //it should match the id we have in stream dashboard for users
         const token = chatClient.createToken(req.user.clerkId);
 
-        res.staus(200).json({
+        res.status(200).json({
             token,
             userId: req.user.clerkId,
             userName: req.user.name,
-            userImage: req.user.image,
+            userImage: req.user.profileImage,
         })
     } catch (error) {
         console.error("Error creating Stream token:", error);
