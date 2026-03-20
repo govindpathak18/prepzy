@@ -22,7 +22,7 @@ function SessionPage() {
   const [output, setOutput] = useState(null);
   const [isRunning, setIsRunning] = useState(false);
 
-  const { data: sessionData, isLoading: loadingSession, refetch } = useSessionById(id); // => session
+  const { data: sessionData, isLoading: loadingSession, refetch } = useSessionById(id);
 
   const joinSessionMutation = useJoinSession();
   const endSessionMutation = useEndSession();
@@ -38,7 +38,6 @@ function SessionPage() {
     isParticipant
   );
 
-  // find the problem data based on session problem title
   const problemData = session?.problem
     ? Object.values(PROBLEMS).find((p) => p.title === session.problem)
     : null;
@@ -46,24 +45,17 @@ function SessionPage() {
   const [selectedLanguage, setSelectedLanguage] = useState("cpp");
   const [code, setCode] = useState(problemData?.starterCode?.[selectedLanguage] || "");
 
-  // auto-join session if user is not already a participant and not the host
   useEffect(() => {
     if (!session || !user || loadingSession) return;
     if (isHost || isParticipant) return;
-
     joinSessionMutation.mutate(id, { onSuccess: refetch });
-
-    // remove the joinSessionMutation, refetch from dependencies to avoid infinite loop
   }, [session, user, loadingSession, isHost, isParticipant, id]);
 
-  // redirect the "participant" when session ends
   useEffect(() => {
     if (!session || loadingSession) return;
-
     if (session.status === "completed") navigate("/dashboard");
   }, [session, loadingSession, navigate]);
 
-  // update code when problem loads or changes
   useEffect(() => {
     if (problemData?.starterCode?.[selectedLanguage]) {
       setCode(problemData.starterCode[selectedLanguage]);
@@ -73,16 +65,13 @@ function SessionPage() {
   const handleLanguageChange = (e) => {
     const newLang = e.target.value;
     setSelectedLanguage(newLang);
-    // use problem-specific starter code
-    const starterCode = problemData?.starterCode?.[newLang] || "";
-    setCode(starterCode);
+    setCode(problemData?.starterCode?.[newLang] || "");
     setOutput(null);
   };
 
   const handleRunCode = async () => {
     setIsRunning(true);
     setOutput(null);
-
     const result = await executeCode(selectedLanguage, code);
     setOutput(result);
     setIsRunning(false);
@@ -90,114 +79,123 @@ function SessionPage() {
 
   const handleEndSession = () => {
     if (confirm("Are you sure you want to end this session? All participants will be notified.")) {
-      // this will navigate the HOST to dashboard
       endSessionMutation.mutate(id, { onSuccess: () => navigate("/dashboard") });
     }
   };
 
   return (
-    <div className="h-screen bg-base-100 flex flex-col">
+    <div className="h-screen bg-zinc-950 flex flex-col">
       <Navbar />
 
-      <div className="flex-1">
+      <div className="flex-1 overflow-hidden">
         <PanelGroup direction="horizontal">
-          {/* LEFT PANEL - CODE EDITOR & PROBLEM DETAILS */}
+
+          {/* LEFT PANEL */}
           <Panel defaultSize={50} minSize={30}>
             <PanelGroup direction="vertical">
-              {/* PROBLEM DSC PANEL */}
+
+              {/* PROBLEM DESCRIPTION */}
               <Panel defaultSize={50} minSize={20}>
-                <div className="h-full overflow-y-auto bg-base-200">
-                  {/* HEADER SECTION */}
-                  <div className="p-6 bg-base-100 border-b border-base-300">
+                <div className="h-full overflow-y-auto bg-zinc-50 dark:bg-zinc-900">
+
+                  {/* HEADER */}
+                  <div className="p-6 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
                     <div className="flex items-start justify-between mb-3">
                       <div>
-                        <h1 className="text-3xl font-bold text-base-content">
+                        <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
                           {session?.problem || "Loading..."}
                         </h1>
                         {problemData?.category && (
-                          <p className="text-base-content/60 mt-1">{problemData.category}</p>
+                          <p className="text-xs text-zinc-400 mt-1 uppercase tracking-wider">
+                            {problemData.category}
+                          </p>
                         )}
-                        <p className="text-base-content/60 mt-2">
+                        <p className="text-sm text-zinc-400 mt-2">
                           Host: {session?.host?.name || "Loading..."} •{" "}
                           {session?.participant ? 2 : 1}/2 participants
                         </p>
                       </div>
 
                       <div className="flex items-center gap-3">
-                        <span
-                          className={`badge badge-lg ${getDifficultyBadgeClass(
-                            session?.difficulty
-                          )}`}
-                        >
-                          {session?.difficulty.slice(0, 1).toUpperCase() +
-                            session?.difficulty.slice(1) || "Easy"}
-                        </span>
+                        {session?.difficulty && (
+                          <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${getDifficultyBadgeClass(session.difficulty)}`}>
+                            {session.difficulty?.charAt(0).toUpperCase() + session.difficulty?.slice(1)}
+                          </span>
+                        )}
+
                         {isHost && session?.status === "active" && (
                           <button
                             onClick={handleEndSession}
                             disabled={endSessionMutation.isPending}
-                            className="btn btn-error btn-sm gap-2"
+                            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-white transition-all duration-200 disabled:opacity-50 hover:-translate-y-0.5 active:scale-95"
+                            style={{
+                              background: "linear-gradient(135deg, #E24B4A 0%, #f07878 100%)",
+                              boxShadow: "0 2px 10px rgba(226,75,74,0.3)",
+                            }}
                           >
                             {endSessionMutation.isPending ? (
-                              <Loader2Icon className="w-4 h-4 animate-spin" />
+                              <Loader2Icon className="size-3.5 animate-spin" />
                             ) : (
-                              <LogOutIcon className="w-4 h-4" />
+                              <LogOutIcon className="size-3.5" />
                             )}
                             End Session
                           </button>
                         )}
+
                         {session?.status === "completed" && (
-                          <span className="badge badge-ghost badge-lg">Completed</span>
+                          <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400">
+                            Completed
+                          </span>
                         )}
                       </div>
                     </div>
                   </div>
 
-                  <div className="p-6 space-y-6">
-                    {/* problem desc */}
+                  {/* BODY */}
+                  <div className="p-6 space-y-4">
+
+                    {/* DESCRIPTION */}
                     {problemData?.description && (
-                      <div className="bg-base-100 rounded-xl shadow-sm p-5 border border-base-300">
-                        <h2 className="text-xl font-bold mb-4 text-base-content">Description</h2>
-                        <div className="space-y-3 text-base leading-relaxed">
-                          <p className="text-base-content/90">{problemData.description.text}</p>
+                      <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5">
+                        <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-3">
+                          Description
+                        </h2>
+                        <div className="space-y-2 text-sm leading-relaxed">
+                          <p className="text-zinc-700 dark:text-zinc-300">
+                            {problemData.description.text}
+                          </p>
                           {problemData.description.notes?.map((note, idx) => (
-                            <p key={idx} className="text-base-content/90">
-                              {note}
-                            </p>
+                            <p key={idx} className="text-zinc-500 dark:text-zinc-400">{note}</p>
                           ))}
                         </div>
                       </div>
                     )}
 
-                    {/* examples section */}
-                    {problemData?.examples && problemData.examples.length > 0 && (
-                      <div className="bg-base-100 rounded-xl shadow-sm p-5 border border-base-300">
-                        <h2 className="text-xl font-bold mb-4 text-base-content">Examples</h2>
-
+                    {/* EXAMPLES */}
+                    {problemData?.examples?.length > 0 && (
+                      <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5">
+                        <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-4">
+                          Examples
+                        </h2>
                         <div className="space-y-4">
                           {problemData.examples.map((example, idx) => (
                             <div key={idx}>
-                              <div className="flex items-center gap-2 mb-2">
-                                <span className="badge badge-sm">{idx + 1}</span>
-                                <p className="font-semibold text-base-content">Example {idx + 1}</p>
-                              </div>
-                              <div className="bg-base-200 rounded-lg p-4 font-mono text-sm space-y-1.5">
+                              <p className="text-xs font-semibold text-purple-600 dark:text-purple-400 mb-2">
+                                Example {idx + 1}
+                              </p>
+                              <div className="rounded-lg bg-zinc-950 p-4 font-mono text-xs space-y-1.5 border border-zinc-800">
                                 <div className="flex gap-2">
-                                  <span className="text-primary font-bold min-w-[70px]">
-                                    Input:
-                                  </span>
-                                  <span>{example.input}</span>
+                                  <span className="text-purple-400 font-bold min-w-[70px]">Input:</span>
+                                  <span className="text-zinc-300">{example.input}</span>
                                 </div>
                                 <div className="flex gap-2">
-                                  <span className="text-secondary font-bold min-w-[70px]">
-                                    Output:
-                                  </span>
-                                  <span>{example.output}</span>
+                                  <span className="text-green-400 font-bold min-w-[70px]">Output:</span>
+                                  <span className="text-zinc-300">{example.output}</span>
                                 </div>
                                 {example.explanation && (
-                                  <div className="pt-2 border-t border-base-300 mt-2">
-                                    <span className="text-base-content/60 font-sans text-xs">
-                                      <span className="font-semibold">Explanation:</span>{" "}
+                                  <div className="pt-2 border-t border-zinc-800 mt-1">
+                                    <span className="text-zinc-500 font-sans text-xs">
+                                      <span className="text-zinc-400 font-semibold">Explanation: </span>
                                       {example.explanation}
                                     </span>
                                   </div>
@@ -209,15 +207,19 @@ function SessionPage() {
                       </div>
                     )}
 
-                    {/* Constraints */}
-                    {problemData?.constraints && problemData.constraints.length > 0 && (
-                      <div className="bg-base-100 rounded-xl shadow-sm p-5 border border-base-300">
-                        <h2 className="text-xl font-bold mb-4 text-base-content">Constraints</h2>
-                        <ul className="space-y-2 text-base-content/90">
+                    {/* CONSTRAINTS */}
+                    {problemData?.constraints?.length > 0 && (
+                      <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5">
+                        <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-3">
+                          Constraints
+                        </h2>
+                        <ul className="space-y-2">
                           {problemData.constraints.map((constraint, idx) => (
-                            <li key={idx} className="flex gap-2">
-                              <span className="text-primary">•</span>
-                              <code className="text-sm">{constraint}</code>
+                            <li key={idx} className="flex items-start gap-2">
+                              <span className="text-purple-500 mt-0.5">•</span>
+                              <code className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                                {constraint}
+                              </code>
                             </li>
                           ))}
                         </ul>
@@ -227,8 +229,9 @@ function SessionPage() {
                 </div>
               </Panel>
 
-              <PanelResizeHandle className="h-2 bg-base-300 hover:bg-primary transition-colors cursor-row-resize" />
+              <PanelResizeHandle className="h-1.5 bg-zinc-800 hover:bg-purple-600 transition-colors duration-150 cursor-row-resize" />
 
+              {/* CODE EDITOR + OUTPUT */}
               <Panel defaultSize={50} minSize={20}>
                 <PanelGroup direction="vertical">
                   <Panel defaultSize={70} minSize={30}>
@@ -241,39 +244,44 @@ function SessionPage() {
                       onRunCode={handleRunCode}
                     />
                   </Panel>
-
-                  <PanelResizeHandle className="h-2 bg-base-300 hover:bg-primary transition-colors cursor-row-resize" />
-
+                  <PanelResizeHandle className="h-1.5 bg-zinc-800 hover:bg-purple-600 transition-colors duration-150 cursor-row-resize" />
                   <Panel defaultSize={30} minSize={15}>
                     <OutputPanel output={output} />
                   </Panel>
                 </PanelGroup>
               </Panel>
+
             </PanelGroup>
           </Panel>
 
-          <PanelResizeHandle className="w-2 bg-base-300 hover:bg-primary transition-colors cursor-col-resize" />
+          <PanelResizeHandle className="w-1.5 bg-zinc-800 hover:bg-purple-600 transition-colors duration-150 cursor-col-resize" />
 
-          {/* RIGHT PANEL - VIDEO CALLS & CHAT */}
+          {/* RIGHT PANEL - VIDEO */}
           <Panel defaultSize={50} minSize={30}>
-            <div className="h-full bg-base-200 p-4 overflow-auto">
+            <div className="h-full bg-zinc-950 p-4 overflow-auto">
               {isInitializingCall ? (
                 <div className="h-full flex items-center justify-center">
-                  <div className="text-center">
-                    <Loader2Icon className="w-12 h-12 mx-auto animate-spin text-primary mb-4" />
-                    <p className="text-lg">Connecting to video call...</p>
+                  <div className="text-center space-y-4">
+                    <div className="size-16 mx-auto rounded-2xl bg-purple-950 flex items-center justify-center">
+                      <Loader2Icon className="size-8 animate-spin text-purple-400" />
+                    </div>
+                    <p className="text-sm font-medium text-zinc-400">
+                      Connecting to video call...
+                    </p>
                   </div>
                 </div>
               ) : !streamClient || !call ? (
                 <div className="h-full flex items-center justify-center">
-                  <div className="card bg-base-100 shadow-xl max-w-md">
-                    <div className="card-body items-center text-center">
-                      <div className="w-24 h-24 bg-error/10 rounded-full flex items-center justify-center mb-4">
-                        <PhoneOffIcon className="w-12 h-12 text-error" />
-                      </div>
-                      <h2 className="card-title text-2xl">Connection Failed</h2>
-                      <p className="text-base-content/70">Unable to connect to the video call</p>
+                  <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-8 max-w-sm text-center">
+                    <div className="size-16 mx-auto rounded-2xl bg-red-950 flex items-center justify-center mb-4">
+                      <PhoneOffIcon className="size-8 text-red-400" />
                     </div>
+                    <h2 className="text-lg font-semibold text-zinc-100 mb-2">
+                      Connection Failed
+                    </h2>
+                    <p className="text-sm text-zinc-400">
+                      Unable to connect to the video call
+                    </p>
                   </div>
                 </div>
               ) : (
@@ -287,6 +295,7 @@ function SessionPage() {
               )}
             </div>
           </Panel>
+
         </PanelGroup>
       </div>
     </div>

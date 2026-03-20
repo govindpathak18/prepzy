@@ -18,17 +18,22 @@ function useStreamClient(session, loadingSession, isHost, isParticipant) {
     const initCall = async () => {
       if (!session?.callId) return;
       if (!isHost && !isParticipant) return;
-      if (session.status === "completed") return;
+      if (session?.status === "completed") return;
+
+      const apiKey = import.meta.env.VITE_STREAM_API_KEY;
+
+      // ✅ Validate API key before proceeding
+      if (!apiKey) {
+        toast.error("Stream API key is missing");
+        setIsInitializingCall(false);
+        return;
+      }
 
       try {
         const { token, userId, userName, userImage } = await sessionApi.getStreamToken();
 
         const client = await initializeStreamClient(
-          {
-            id: userId,
-            name: userName,
-            image: userImage,
-          },
+          { id: userId, name: userName, image: userImage },
           token
         );
 
@@ -38,15 +43,11 @@ function useStreamClient(session, loadingSession, isHost, isParticipant) {
         await videoCall.join({ create: true });
         setCall(videoCall);
 
-        const apiKey = import.meta.env.VITE_STREAM_API_KEY;
+        // ✅ Reuse existing instance if already connected
         chatClientInstance = StreamChat.getInstance(apiKey);
 
         await chatClientInstance.connectUser(
-          {
-            id: userId,
-            name: userName,
-            image: userImage,
-          },
+          { id: userId, name: userName, image: userImage },
           token
         );
         setChatClient(chatClientInstance);
@@ -56,7 +57,7 @@ function useStreamClient(session, loadingSession, isHost, isParticipant) {
         setChannel(chatChannel);
       } catch (error) {
         toast.error("Failed to join video call");
-        console.error("Error init call", error);
+        console.error("Error initializing call:", error);
       } finally {
         setIsInitializingCall(false);
       }
@@ -64,9 +65,8 @@ function useStreamClient(session, loadingSession, isHost, isParticipant) {
 
     if (session && !loadingSession) initCall();
 
-    // cleanup - performance reasons
+    // cleanup
     return () => {
-      // iife
       (async () => {
         try {
           if (videoCall) await videoCall.leave();
@@ -77,7 +77,9 @@ function useStreamClient(session, loadingSession, isHost, isParticipant) {
         }
       })();
     };
-  }, [session, loadingSession, isHost, isParticipant]);
+
+  // ✅ Use primitives instead of object reference to avoid infinite re-renders
+  }, [session?.callId, session?.status, loadingSession, isHost, isParticipant]);
 
   return {
     streamClient,

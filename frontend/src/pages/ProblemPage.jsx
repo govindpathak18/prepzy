@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router";
 import { PROBLEMS } from "../../data/problems";
 import Navbar from "../components/Navbar";
@@ -36,16 +36,13 @@ function ProblemPage() {
     const savedCode = localStorage.getItem(
       `code-${currentProblem.id}-${selectedLanguage}`
     );
-
     if (savedCode) {
       setCode(savedCode);
     } else {
       setCode(
-        currentProblem.starterCode[selectedLanguage] ??
-        "// No starter code available"
+        currentProblem.starterCode[selectedLanguage] ?? "// No starter code available"
       );
     }
-
     setOutput(null);
   }, [currentProblem, selectedLanguage]);
 
@@ -59,27 +56,6 @@ function ProblemPage() {
     }
   }, [code, currentProblem.id, selectedLanguage]);
 
-  // Keyboard shortcut (Ctrl + Enter)
-  useEffect(() => {
-    const handler = (e) => {
-      if (e.ctrlKey && e.key === "Enter") {
-        runCode();
-      }
-    };
-
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [code, selectedLanguage]);
-
-  const handleLanguageChange = ({ target: { value } }) => {
-    setSelectedLanguage(value);
-    setOutput(null);
-  };
-
-  const handleProblemChange = (newProblemId) => {
-    navigate(`/problem/${newProblemId}`);
-  };
-
   const triggerConfetti = () => {
     confetti({ ...CONFETTI_CONFIG, origin: { x: 0.2, y: 0.6 } });
     confetti({ ...CONFETTI_CONFIG, origin: { x: 0.8, y: 0.6 } });
@@ -87,13 +63,11 @@ function ProblemPage() {
 
   const normalizeOutput = (text) => {
     if (!text) return "";
-
     return text
       .trim()
       .split("\n")
       .map((line) =>
-        line
-          .trim()
+        line.trim()
           .replace(/\[\s+/g, "[")
           .replace(/\s+\]/g, "]")
           .replace(/\s*,\s*/g, ",")
@@ -106,7 +80,8 @@ function ProblemPage() {
     return normalizeOutput(actualOutput) === normalizeOutput(expectedOutput);
   };
 
-  const runCode = async () => {
+  // ✅ useCallback so keyboard shortcut always has fresh reference
+  const runCode = useCallback(async () => {
     if (isRunning) return;
 
     setIsRunning(true);
@@ -114,7 +89,6 @@ function ProblemPage() {
 
     try {
       const result = await executeCode(selectedLanguage, code);
-
       setOutput(result);
 
       if (!result.success) {
@@ -122,13 +96,8 @@ function ProblemPage() {
         return;
       }
 
-      const expectedOutput =
-        currentProblem.expectedOutput[selectedLanguage];
-
-      const testsPassed = checkIfTestsPassed(
-        result.output,
-        expectedOutput
-      );
+      const expectedOutput = currentProblem.expectedOutput[selectedLanguage];
+      const testsPassed = checkIfTestsPassed(result.output, expectedOutput);
 
       if (testsPassed) {
         triggerConfetti();
@@ -142,16 +111,34 @@ function ProblemPage() {
     } finally {
       setIsRunning(false);
     }
+  }, [isRunning, selectedLanguage, code, currentProblem]);
+
+  // Keyboard shortcut (Ctrl + Enter)
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.ctrlKey && e.key === "Enter") runCode();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [runCode]);
+
+  const handleLanguageChange = ({ target: { value } }) => {
+    setSelectedLanguage(value);
+    setOutput(null);
+  };
+
+  const handleProblemChange = (newProblemId) => {
+    navigate(`/problem/${newProblemId}`);
   };
 
   return (
-    <div className="h-screen bg-base-100 flex flex-col">
+    <div className="h-screen bg-zinc-950 flex flex-col">
       <Navbar />
 
       <div className="flex-1 overflow-hidden">
         <PanelGroup direction="horizontal">
 
-          {/* Left Panel */}
+          {/* LEFT PANEL — Problem Description */}
           <Panel defaultSize={40} minSize={30}>
             <div className="h-full overflow-y-auto">
               <ProblemDescription
@@ -163,15 +150,16 @@ function ProblemPage() {
             </div>
           </Panel>
 
-          <PanelResizeHandle className="w-1.5 bg-base-300 hover:bg-primary transition-colors cursor-col-resize" />
+          {/* RESIZE HANDLE */}
+          <PanelResizeHandle className="w-1.5 bg-zinc-800 hover:bg-purple-600 transition-colors duration-150 cursor-col-resize" />
 
-          {/* Right Panel */}
+          {/* RIGHT PANEL — Editor + Output */}
           <Panel defaultSize={60} minSize={30}>
             <PanelGroup direction="vertical">
 
               {/* Code Editor */}
               <Panel defaultSize={70} minSize={30}>
-                <div className="h-full overflow-hidden">
+                <div className="h-full overflow-hidden p-2 pb-1">
                   <CodeEditorPanel
                     selectedLanguage={selectedLanguage}
                     code={code}
@@ -183,11 +171,12 @@ function ProblemPage() {
                 </div>
               </Panel>
 
-              <PanelResizeHandle className="h-1.5 bg-base-300 hover:bg-primary transition-colors cursor-row-resize" />
+              {/* RESIZE HANDLE */}
+              <PanelResizeHandle className="h-1.5 bg-zinc-800 hover:bg-purple-600 transition-colors duration-150 cursor-row-resize" />
 
               {/* Output Panel */}
               <Panel defaultSize={30} minSize={10}>
-                <div className="h-full overflow-y-auto">
+                <div className="h-full overflow-y-auto p-2 pt-1">
                   <OutputPanel output={output} />
                 </div>
               </Panel>

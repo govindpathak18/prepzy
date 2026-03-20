@@ -21,7 +21,7 @@ export async function createSession(req, res) {
       },
     });
 
-    //  Create Stream chat channel
+    // Create Stream chat channel
     const channel = chatClient.channel("messaging", callId, {
       name: `${problem} Session`,
       created_by_id: clerkId,
@@ -30,7 +30,7 @@ export async function createSession(req, res) {
 
     await channel.create();
 
-    //  Only after Stream succeeds → save session in DB
+    // Only after Stream succeeds → save session in DB
     const session = await Session.create({
       problem,
       difficulty,
@@ -39,10 +39,8 @@ export async function createSession(req, res) {
     });
 
     res.status(201).json({ session });
-
   } catch (error) {
     console.log("Error in createSession controller:", error.message);
-
     res.status(500).json({
       message: "Error creating session. Please try again.",
     });
@@ -68,11 +66,12 @@ export async function getMyRecentSessions(req, res) {
   try {
     const userId = req.user._id;
 
-    // get sessions where user is either host or participant
     const sessions = await Session.find({
       status: "completed",
       $or: [{ host: userId }, { participant: userId }],
     })
+      .populate("host", "name profileImage email clerkId")
+      .populate("participant", "name profileImage email clerkId")
       .sort({ createdAt: -1 })
       .limit(20);
 
@@ -118,22 +117,18 @@ export async function joinSession(req, res) {
       return res.status(400).json({ message: "Host cannot join their own session as participant" });
     }
 
-    // check if session is already full - has a participant
     if (session.participant) return res.status(409).json({ message: "Session is full" });
 
     session.participant = userId;
     await session.save();
 
-    const channel = chatClient.channel("messaging", session.callId);
-    await channel.addMembers([clerkId]);
     try {
-      const channel = chatClient.channel("messaging",session.callId);
-      await channel.addMembers([clerkId])
+      const channel = chatClient.channel("messaging", session.callId);
+      await channel.addMembers([clerkId]);
     } catch (channelError) {
-     // remove participant from the session
-     session.participant = null;
-     await session.save()
-     throw channelError
+      session.participant = null;
+      await session.save();
+      throw channelError;
     }
 
     res.status(200).json({ session });
@@ -152,21 +147,19 @@ export async function endSession(req, res) {
 
     if (!session) return res.status(404).json({ message: "Session not found" });
 
-    // check if user is the host
     if (session.host.toString() !== userId.toString()) {
       return res.status(403).json({ message: "Only the host can end the session" });
     }
 
-    // check if session is already completed
     if (session.status === "completed") {
       return res.status(400).json({ message: "Session is already completed" });
     }
 
-    // delete stream video call
+    // Delete Stream video call
     const call = streamClient.video.call("default", session.callId);
     await call.delete({ hard: true });
 
-    // delete stream chat channel
+    // Delete Stream chat channel
     const channel = chatClient.channel("messaging", session.callId);
     await channel.delete();
 
