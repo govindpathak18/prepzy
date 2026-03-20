@@ -12,9 +12,9 @@ import sessionRoutes from "./routes/sessionRoutes.js";
 const app = express();
 const __dirname = path.resolve();
 
-app.use("/api/test", (req, res) => {
-  res.json({ message: "api testing " });
-});
+// app.use("/api/test", (req, res) => {
+//   res.json({ message: "api testing " });
+// });
 
 app.use(clerkMiddleware()); // this adds auth feild to reques object,: req.auth()
 app.use(express.json());

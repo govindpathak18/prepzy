@@ -15,6 +15,8 @@ export const initializeStreamClient = async (user, token) => {
 
   if (!apiKey) throw new Error("Stream API key is not provided.");
 
+  console.log("STREAM KEY:", import.meta.env.VITE_STREAM_API_KEY);
+
   client = new StreamVideoClient({
     apiKey,
     user,
