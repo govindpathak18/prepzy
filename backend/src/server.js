@@ -1,5 +1,4 @@
 import express from "express";
-import path from "path";
 import cors from "cors";
 import { serve } from "inngest/express";
 import { clerkMiddleware } from "@clerk/express";
@@ -13,37 +12,39 @@ import sessionRoutes from "./routes/sessionRoutes.js";
 
 const app = express();
 
-const __dirname = path.resolve();
-
-// middleware
+// Middleware
 app.use(express.json());
-// credentials:true meaning?? => server allows a browser to include cookies on request
-app.use(cors({ origin: ENV.CLIENT_URL, credentials: true }));
-app.use(clerkMiddleware()); // this adds auth field to request object: req.auth()
 
+app.use(
+  cors({
+    origin: ENV.CLIENT_URL,
+    credentials: true,
+  })
+);
+
+app.use(clerkMiddleware());
+
+// Routes
 app.use("/api/inngest", serve({ client: inngest, functions }));
 app.use("/api/chat", chatRoutes);
 app.use("/api/sessions", sessionRoutes);
 
+// Health Check
 app.get("/health", (req, res) => {
-  res.status(200).json({ msg: "api is up and running" });
-});
-
-// make our app ready for deployment
-if (ENV.NODE_ENV === "production") {
-  const frontendPath = path.join(__dirname, "../frontend/dist");
-
-  app.use(express.static(frontendPath));
-
-  app.get(/.*/, (req, res) => {
-    res.sendFile(path.join(frontendPath, "index.html"));
+  res.status(200).json({
+    msg: "api is up and running",
   });
-}
+});
 
 const startServer = async () => {
   try {
     await connectDB();
-    app.listen(ENV.PORT, () => console.log("Server is running on port:", ENV.PORT));
+
+    const PORT = ENV.PORT || 3000;
+
+    app.listen(PORT, () => {
+      console.log("Server is running on port:", PORT);
+    });
   } catch (error) {
     console.error("💥 Error starting the server", error);
   }
