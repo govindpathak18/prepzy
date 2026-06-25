@@ -15,10 +15,16 @@
     "@clerk/express": "^1.7.41",
     "@stream-io/node-sdk": "^0.7.12",
     "cors": "^2.8.6",
+    "docx": "^9.7.1",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
+    "html-to-text": "^10.0.0",
     "inngest": "^3.52.6",
+    "mammoth": "^1.12.0",
     "mongoose": "^8.19.1",
+    "multer": "^2.2.0",
+    "pdf-parse": "^2.4.5",
+    "pdfkit": "^0.19.1",
     "stream-chat": "^9.24.0"
   },
   "devDependencies": {
