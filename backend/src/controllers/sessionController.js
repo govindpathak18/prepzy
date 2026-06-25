@@ -1,9 +1,27 @@
 import { chatClient, streamClient } from "../lib/stream.js";
 import Session from "../models/Session.js";
 
+const VALID_DIFFICULTIES = new Set(["easy", "medium", "hard"]);
+
+async function populateSession(sessionId) {
+  return Session.findById(sessionId)
+    .populate("host", "name profileImage email clerkId")
+    .populate("participant", "name profileImage email clerkId");
+}
+
+async function ensureStreamUser(user) {
+  await chatClient.upsertUser({
+    id: user.clerkId,
+    name: user.name,
+    image: user.profileImage,
+  });
+}
+
 export async function createSession(req, res) {
   try {
-    const { problem, difficulty } = req.body;
+    const problem = typeof req.body.problem === "string" ? req.body.problem.trim() : "";
+    const difficulty =
+      typeof req.body.difficulty === "string" ? req.body.difficulty.toLowerCase() : "";
     const userId = req.user._id;
     const clerkId = req.user.clerkId;
 
@@ -11,7 +29,13 @@ export async function createSession(req, res) {
       return res.status(400).json({ message: "Problem and difficulty are required" });
     }
 
+    if (!VALID_DIFFICULTIES.has(difficulty)) {
+      return res.status(400).json({ message: "Difficulty must be easy, medium, or hard" });
+    }
+
     const callId = `session_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+
+    await ensureStreamUser(req.user);
 
     // Create Stream video call
     await streamClient.video.call("default", callId).getOrCreate({
@@ -31,18 +55,20 @@ export async function createSession(req, res) {
     await channel.create();
 
     // Only after Stream succeeds → save session in DB
-    const session = await Session.create({
+    const createdSession = await Session.create({
       problem,
       difficulty,
       host: userId,
       callId,
     });
 
+    const session = await populateSession(createdSession._id);
+
     res.status(201).json({ session });
   } catch (error) {
-    console.log("Error in createSession controller:", error.message);
+    console.error("Error in createSession controller:", error);
     res.status(500).json({
-      message: "Error creating session. Please try again.",
+      message: error.message || "Error creating session. Please try again.",
     });
   }
 }
@@ -119,19 +145,20 @@ export async function joinSession(req, res) {
 
     if (session.participant) return res.status(409).json({ message: "Session is full" });
 
-    session.participant = userId;
-    await session.save();
-
     try {
+      await ensureStreamUser(req.user);
       const channel = chatClient.channel("messaging", session.callId);
       await channel.addMembers([clerkId]);
     } catch (channelError) {
-      session.participant = null;
-      await session.save();
       throw channelError;
     }
 
-    res.status(200).json({ session });
+    session.participant = userId;
+    await session.save();
+
+    const populatedSession = await populateSession(session._id);
+
+    res.status(200).json({ session: populatedSession });
   } catch (error) {
     console.log("Error in joinSession controller:", error.message);
     res.status(500).json({ message: "Internal Server Error" });

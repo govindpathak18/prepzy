@@ -1,6 +1,7 @@
 import Editor from "@monaco-editor/react";
 import { Loader2Icon, PlayIcon, ChevronDownIcon } from "lucide-react";
 import { LANGUAGE_CONFIG } from "../../data/problems";
+import { DEFAULT_EDITOR_THEME, getValidLanguage } from "../lib/editorDefaults";
 
 function CodeEditorPanel({
   selectedLanguage,
@@ -10,6 +11,10 @@ function CodeEditorPanel({
   onCodeChange,
   onRunCode,
 }) {
+  const language = getValidLanguage(selectedLanguage);
+  const languageConfig = LANGUAGE_CONFIG[language];
+  const editorValue = typeof code === "string" ? code : "";
+
   return (
     <div className="h-full flex flex-col rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-800">
       
@@ -19,8 +24,8 @@ function CodeEditorPanel({
         {/* LANGUAGE SELECTOR */}
         <div className="flex items-center gap-2.5">
           <img
-            src={LANGUAGE_CONFIG[selectedLanguage].icon}
-            alt={LANGUAGE_CONFIG[selectedLanguage].name}
+            src={languageConfig.icon}
+            alt={languageConfig.name}
             className="size-5 rounded"
           />
           <div className="relative">
@@ -69,10 +74,10 @@ function CodeEditorPanel({
       <div className="flex-1">
         <Editor
           height="100%"
-          language={LANGUAGE_CONFIG[selectedLanguage].monacoLang}
-          value={code}
+          language={languageConfig.monacoLang}
+          value={editorValue}
           onChange={onCodeChange}
-          theme="vs-dark"
+          theme={DEFAULT_EDITOR_THEME}
           options={{
             fontSize: 14,
             lineNumbers: "on",

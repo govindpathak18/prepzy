@@ -4,12 +4,18 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useEndSession, useJoinSession, useSessionById } from "../hooks/useSessions";
 import { PROBLEMS } from "../../data/problems";
 import { executeCode } from "../lib/judge0";
+import {
+  DEFAULT_EDITOR_LANGUAGE,
+  getStarterCode,
+  getValidLanguage,
+} from "../lib/editorDefaults";
 import Navbar from "../components/Navbar";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { getDifficultyBadgeClass } from "../lib/utils";
-import { Loader2Icon, LogOutIcon, PhoneOffIcon } from "lucide-react";
+import { CopyIcon, Loader2Icon, LogOutIcon, PhoneOffIcon } from "lucide-react";
 import CodeEditorPanel from "../components/CodeEditorPanel";
 import OutputPanel from "../components/OutputPanel";
+import toast from "react-hot-toast";
 
 import useStreamClient from "../hooks/useStreamClient";
 import { StreamCall, StreamVideo } from "@stream-io/video-react-sdk";
@@ -24,7 +30,7 @@ function SessionPage() {
 
   const { data: sessionData, isLoading: loadingSession, refetch } = useSessionById(id);
 
-  const joinSessionMutation = useJoinSession();
+  const { mutate: joinSession } = useJoinSession();
   const endSessionMutation = useEndSession();
 
   const session = sessionData?.session;
@@ -42,14 +48,14 @@ function SessionPage() {
     ? Object.values(PROBLEMS).find((p) => p.title === session.problem)
     : null;
 
-  const [selectedLanguage, setSelectedLanguage] = useState("cpp");
-  const [code, setCode] = useState(problemData?.starterCode?.[selectedLanguage] || "");
+  const [selectedLanguage, setSelectedLanguage] = useState(DEFAULT_EDITOR_LANGUAGE);
+  const [code, setCode] = useState(() => getStarterCode(problemData, DEFAULT_EDITOR_LANGUAGE));
 
   useEffect(() => {
     if (!session || !user || loadingSession) return;
     if (isHost || isParticipant) return;
-    joinSessionMutation.mutate(id, { onSuccess: refetch });
-  }, [session, user, loadingSession, isHost, isParticipant, id]);
+    joinSession(id, { onSuccess: refetch });
+  }, [session, user, loadingSession, isHost, isParticipant, id, joinSession, refetch]);
 
   useEffect(() => {
     if (!session || loadingSession) return;
@@ -57,24 +63,38 @@ function SessionPage() {
   }, [session, loadingSession, navigate]);
 
   useEffect(() => {
-    if (problemData?.starterCode?.[selectedLanguage]) {
-      setCode(problemData.starterCode[selectedLanguage]);
-    }
+    setCode(getStarterCode(problemData, selectedLanguage));
   }, [problemData, selectedLanguage]);
 
   const handleLanguageChange = (e) => {
-    const newLang = e.target.value;
+    const newLang = getValidLanguage(e.target.value);
     setSelectedLanguage(newLang);
-    setCode(problemData?.starterCode?.[newLang] || "");
+    setCode(getStarterCode(problemData, newLang));
     setOutput(null);
   };
 
   const handleRunCode = async () => {
+    if (isRunning) return;
+
     setIsRunning(true);
     setOutput(null);
-    const result = await executeCode(selectedLanguage, code);
-    setOutput(result);
-    setIsRunning(false);
+    try {
+      const result = await executeCode(selectedLanguage, code);
+      setOutput(result);
+    } catch (error) {
+      setOutput({ success: false, error: error.message || "Execution failed" });
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
+  const handleCopyInviteLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      toast.success("Invite link copied");
+    } catch {
+      toast.error("Could not copy invite link");
+    }
   };
 
   const handleEndSession = () => {
@@ -121,6 +141,16 @@ function SessionPage() {
                           <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${getDifficultyBadgeClass(session.difficulty)}`}>
                             {session.difficulty?.charAt(0).toUpperCase() + session.difficulty?.slice(1)}
                           </span>
+                        )}
+
+                        {session?.status === "active" && (
+                          <button
+                            onClick={handleCopyInviteLink}
+                            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 hover:border-purple-400 hover:text-purple-600 dark:hover:text-purple-300 transition-all duration-200 hover:-translate-y-0.5 active:scale-95"
+                          >
+                            <CopyIcon className="size-3.5" />
+                            Copy Invite
+                          </button>
                         )}
 
                         {isHost && session?.status === "active" && (

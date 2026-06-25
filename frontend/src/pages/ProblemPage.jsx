@@ -9,6 +9,12 @@ import OutputPanel from "../components/OutputPanel";
 import CodeEditorPanel from "../components/CodeEditorPanel";
 
 import { executeCode } from "../lib/judge0.js";
+import {
+  DEFAULT_EDITOR_LANGUAGE,
+  getDefaultProblem,
+  getStarterCode,
+  getValidLanguage,
+} from "../lib/editorDefaults";
 
 import toast from "react-hot-toast";
 import confetti from "canvas-confetti";
@@ -23,11 +29,11 @@ function ProblemPage() {
   const navigate = useNavigate();
 
   const currentProblem = useMemo(() => {
-    return PROBLEMS[id] ?? PROBLEMS["two-sum"];
+    return PROBLEMS[id] ?? getDefaultProblem();
   }, [id]);
 
-  const [selectedLanguage, setSelectedLanguage] = useState("cpp");
-  const [code, setCode] = useState("");
+  const [selectedLanguage, setSelectedLanguage] = useState(DEFAULT_EDITOR_LANGUAGE);
+  const [code, setCode] = useState(() => getStarterCode(currentProblem, DEFAULT_EDITOR_LANGUAGE));
   const [output, setOutput] = useState(null);
   const [isRunning, setIsRunning] = useState(false);
 
@@ -39,9 +45,7 @@ function ProblemPage() {
     if (savedCode) {
       setCode(savedCode);
     } else {
-      setCode(
-        currentProblem.starterCode[selectedLanguage] ?? "// No starter code available"
-      );
+      setCode(getStarterCode(currentProblem, selectedLanguage));
     }
     setOutput(null);
   }, [currentProblem, selectedLanguage]);
@@ -61,7 +65,7 @@ function ProblemPage() {
     confetti({ ...CONFETTI_CONFIG, origin: { x: 0.8, y: 0.6 } });
   };
 
-  const normalizeOutput = (text) => {
+  const normalizeOutput = useCallback((text) => {
     if (!text) return "";
     return text
       .trim()
@@ -74,11 +78,11 @@ function ProblemPage() {
       )
       .filter(Boolean)
       .join("\n");
-  };
+  }, []);
 
-  const checkIfTestsPassed = (actualOutput, expectedOutput) => {
+  const checkIfTestsPassed = useCallback((actualOutput, expectedOutput) => {
     return normalizeOutput(actualOutput) === normalizeOutput(expectedOutput);
-  };
+  }, [normalizeOutput]);
 
   // ✅ useCallback so keyboard shortcut always has fresh reference
   const runCode = useCallback(async () => {
@@ -111,7 +115,7 @@ function ProblemPage() {
     } finally {
       setIsRunning(false);
     }
-  }, [isRunning, selectedLanguage, code, currentProblem]);
+  }, [isRunning, selectedLanguage, code, currentProblem, checkIfTestsPassed]);
 
   // Keyboard shortcut (Ctrl + Enter)
   useEffect(() => {
@@ -123,7 +127,7 @@ function ProblemPage() {
   }, [runCode]);
 
   const handleLanguageChange = ({ target: { value } }) => {
-    setSelectedLanguage(value);
+    setSelectedLanguage(getValidLanguage(value));
     setOutput(null);
   };
 

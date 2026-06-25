@@ -20,6 +20,17 @@ const userSchema = new mongoose.Schema(
       required: true,
       unique: true,
     },
+    editorPreferences: {
+      defaultLanguage: {
+        type: String,
+        enum: ["cpp", "java", "python", "javascript"],
+        default: "cpp",
+      },
+      theme: {
+        type: String,
+        default: "vs-dark",
+      },
+    },
   },
   { timestamps: true } // createdAt, updatedAt
 );
