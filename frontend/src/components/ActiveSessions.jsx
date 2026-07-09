@@ -7,10 +7,21 @@ import {
   ZapIcon,
   LoaderIcon,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { getDifficultyBadgeClass } from "../lib/utils";
+import React from "react";
+import { useJoinByCode } from "../hooks/useSessions";
 
 function ActiveSessions({ sessions, isLoading, isUserInSession }) {
+  const [joinCode, setJoinCode] = React.useState("");
+  const joinByCodeMutation = useJoinByCode();
+  const navigate = useNavigate();
+
+  React.useEffect(() => {
+    if (joinByCodeMutation.isSuccess && joinByCodeMutation.data?.session?._id) {
+      navigate(`/session/${joinByCodeMutation.data.session._id}`);
+    }
+  }, [joinByCodeMutation.isSuccess, joinByCodeMutation.data, navigate]);
   return (
     <div className="lg:col-span-2 h-full rounded-2xl border border-purple-500/20 bg-white dark:bg-zinc-900 hover:border-purple-500/40 transition-colors duration-300 shadow-sm">
       <div className="p-6">
@@ -29,6 +40,29 @@ function ActiveSessions({ sessions, isLoading, isUserInSession }) {
             <span className="text-xs font-medium text-green-700 dark:text-green-400">
               {sessions.length} active
             </span>
+          </div>
+        </div>
+
+        {/* JOIN BY CODE */}
+        <div className="mb-4">
+          <label className="text-xs text-zinc-400 mb-1 block">Join by session code</label>
+          <div className="flex gap-2">
+            <input
+              value={joinCode}
+              onChange={(e) => setJoinCode(e.target.value)}
+              placeholder="Enter session code"
+              className="flex-1 px-3 py-2 rounded-lg bg-zinc-800 text-zinc-200 text-sm border border-zinc-700"
+            />
+            <button
+              onClick={() => joinByCodeMutation.mutate(joinCode)}
+              disabled={!joinCode || joinByCodeMutation.isLoading}
+              className="px-4 py-2 rounded-lg text-sm font-medium text-white"
+              style={{
+                background: "linear-gradient(135deg, #7C5EF0 0%, #9B7FF5 100%)",
+              }}
+            >
+              {joinByCodeMutation.isLoading ? "Joining..." : "Join"}
+            </button>
           </div>
         </div>
 

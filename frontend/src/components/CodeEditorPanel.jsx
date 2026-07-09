@@ -10,6 +10,7 @@ function CodeEditorPanel({
   onLanguageChange,
   onCodeChange,
   onRunCode,
+  onEditorMount,
 }) {
   const language = getValidLanguage(selectedLanguage);
   const languageConfig = LANGUAGE_CONFIG[language];
@@ -17,10 +18,10 @@ function CodeEditorPanel({
 
   return (
     <div className="h-full flex flex-col rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-800">
-      
+
       {/* TOOLBAR */}
       <div className="flex items-center justify-between px-4 py-2.5 bg-zinc-900 border-b border-zinc-700">
-        
+
         {/* LANGUAGE SELECTOR */}
         <div className="flex items-center gap-2.5">
           <img
@@ -77,6 +78,9 @@ function CodeEditorPanel({
           language={languageConfig.monacoLang}
           value={editorValue}
           onChange={onCodeChange}
+          onMount={(editor, monaco) => {
+            if (onEditorMount) onEditorMount(editor, monaco);
+          }}
           theme={DEFAULT_EDITOR_THEME}
           options={{
             fontSize: 14,

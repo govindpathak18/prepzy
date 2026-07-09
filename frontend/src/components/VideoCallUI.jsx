@@ -7,17 +7,20 @@ import {
 import { Loader2Icon, MessageSquareIcon, UsersIcon, XIcon } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useLeaveSession } from "../hooks/useSessions";
 import { Channel, Chat, MessageInput, MessageList, Thread, Window } from "stream-chat-react";
 
 import "@stream-io/video-react-sdk/dist/css/styles.css";
 import "stream-chat-react/dist/css/v2/index.css";
 
-function VideoCallUI({ chatClient, channel }) {
+function VideoCallUI({ chatClient, channel, sessionId }) {
   const navigate = useNavigate();
   const { useCallCallingState, useParticipantCount } = useCallStateHooks();
   const callingState = useCallCallingState();
   const participantCount = useParticipantCount();
+  const displayCount = Math.min(participantCount ?? 0, 2);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const leaveMutation = useLeaveSession();
 
   // JOINING STATE
   if (callingState === CallingState.JOINING) {
@@ -72,7 +75,7 @@ function VideoCallUI({ chatClient, channel }) {
             <div className="size-2 rounded-full bg-green-500 animate-pulse" />
             <UsersIcon className="size-4 text-zinc-400" />
             <span className="text-sm font-medium text-zinc-300">
-              {participantCount} {participantCount === 1 ? "participant" : "participants"}
+              {displayCount} {displayCount === 1 ? "participant" : "participants"}
             </span>
           </div>
 
@@ -98,7 +101,18 @@ function VideoCallUI({ chatClient, channel }) {
 
         {/* CALL CONTROLS */}
         <div className="bg-zinc-900 border border-zinc-800 px-4 py-2.5 rounded-xl flex justify-center">
-          <CallControls onLeave={() => navigate("/dashboard")} />
+          <CallControls
+            onLeave={async () => {
+              if (sessionId) {
+                try {
+                  await leaveMutation.mutateAsync(sessionId);
+                } catch (e) {
+                  // swallow — still navigate away
+                }
+              }
+              navigate("/dashboard");
+            }}
+          />
         </div>
       </div>
 

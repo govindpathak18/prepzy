@@ -1,9 +1,11 @@
 @import "tailwindcss";
+
 @plugin "daisyui" {
   themes: all;
 }
 
 @layer base {
+
   button:not(:disabled),
   [role="button"]:not(:disabled) {
     cursor: pointer;
@@ -30,39 +32,106 @@
 }
 
 @keyframes fadeUp {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes scaleIn {
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 @keyframes slideInRight {
-  from { opacity: 0; transform: translateX(12px); }
-  to { opacity: 1; transform: translateX(0); }
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 @keyframes shimmer {
-  from { background-position: -200% center; }
-  to { background-position: 200% center; }
+  from {
+    background-position: -200% center;
+  }
+
+  to {
+    background-position: 200% center;
+  }
 }
 
-.animate-fadeUp    { animation: fadeUp 0.2s ease both; }
-.animate-fadeIn    { animation: fadeIn 0.2s ease both; }
-.animate-scaleIn   { animation: scaleIn 0.2s ease both; }
-.animate-slideInRight { animation: slideInRight 0.2s ease both; }
-.animate-shimmer   {
+.animate-fadeUp {
+  animation: fadeUp 0.2s ease both;
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.2s ease both;
+}
+
+.animate-scaleIn {
+  animation: scaleIn 0.2s ease both;
+}
+
+.animate-slideInRight {
+  animation: slideInRight 0.2s ease both;
+}
+
+.animate-shimmer {
   background: linear-gradient(90deg, #7C5EF0 0%, #a78bf7 50%, #7C5EF0 100%);
   background-size: 200% auto;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   animation: shimmer 2.5s linear infinite;
+}
+
+/* Ensure speaker layout shows multiple participant tiles in fullscreen */
+.str-video:fullscreen .str-video__speaker-layout__participants-bar,
+.str-video:-webkit-full-screen .str-video__speaker-layout__participants-bar {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  justify-content: center !important;
+  align-items: center !important;
+}
+
+.str-video:fullscreen .str-video__speaker-layout__participant-tile,
+.str-video:-webkit-full-screen .str-video__speaker-layout__participant-tile {
+  width: 50% !important;
+  min-width: 50% !important;
+  max-width: 50% !important;
+  padding: 6px !important;
+}
+
+/* Make spotlight area share space when there are 2 participants */
+.str-video:fullscreen .str-video__speaker-layout__spotlight,
+.str-video:-webkit-full-screen .str-video__speaker-layout__spotlight {
+  flex: 1 1 50% !important;
+  min-height: 50% !important;
 }

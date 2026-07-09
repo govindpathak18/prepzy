@@ -1,5 +1,5 @@
 import { useUser } from "@clerk/clerk-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useEndSession, useJoinSession, useSessionById } from "../hooks/useSessions";
 import { PROBLEMS } from "../../data/problems";
@@ -44,6 +44,11 @@ function SessionPage() {
     isParticipant
   );
 
+  const [remoteRun, setRemoteRun] = useState(null);
+  const editorBroadcastTimeout = useRef(null);
+  const isApplyingRemoteEdit = useRef(false);
+  const editorInstanceRef = useRef(null);
+
   const problemData = session?.problem
     ? Object.values(PROBLEMS).find((p) => p.title === session.problem)
     : null;
@@ -81,6 +86,32 @@ function SessionPage() {
     try {
       const result = await executeCode(selectedLanguage, code);
       setOutput(result);
+      // keep focus in the editor after run
+      try {
+        if (editorInstanceRef.current && typeof editorInstanceRef.current.focus === "function") {
+          editorInstanceRef.current.focus();
+        }
+      } catch (e) {
+        // ignore
+      }
+      // broadcast the run to other participants via chat channel
+      try {
+        if (channel && channel.sendMessage) {
+          await channel.sendMessage({
+            text: `${user?.firstName || user?.fullName || user?.id} ran code`,
+            custom: {
+              type: "code_run",
+              code,
+              language: selectedLanguage,
+              output: result.output,
+              success: result.success,
+              executionTime: result.executionTime,
+            },
+          });
+        }
+      } catch (e) {
+        console.error("Failed to broadcast code run:", e);
+      }
     } catch (error) {
       setOutput({ success: false, error: error.message || "Execution failed" });
     } finally {
@@ -88,10 +119,89 @@ function SessionPage() {
     }
   };
 
+  // listen for remote code runs
+  useEffect(() => {
+    if (!chatClient) return;
+
+    const handler = (event) => {
+      try {
+        const msg = event.message || event;
+        const custom = msg?.custom || msg?.data?.custom || msg?.custom_fields || null;
+        if (custom?.type === "code_run") {
+          setRemoteRun({
+            code: custom.code,
+            language: custom.language,
+            output: custom.output,
+            success: custom.success,
+            executionTime: custom.executionTime,
+            user: msg?.user?.name || msg?.user?.id,
+          });
+        }
+
+        // editor live updates
+        if (custom?.type === "editor_update") {
+          // ignore our own messages
+          const senderId = msg?.user?.id;
+          if (!senderId || senderId === user?.id) return;
+
+          try {
+            isApplyingRemoteEdit.current = true;
+            if (typeof custom.language === "string") setSelectedLanguage(custom.language);
+            setCode(custom.code || "");
+          } finally {
+            // clear flag after a tick to avoid echoing
+            setTimeout(() => {
+              isApplyingRemoteEdit.current = false;
+            }, 0);
+          }
+        }
+      } catch (err) {
+        console.error("Error handling incoming message", err);
+      }
+    };
+
+    chatClient.on("message.new", handler);
+    return () => {
+      try {
+        chatClient.off("message.new", handler);
+      } catch (e) {
+        /* ignore */
+      }
+    };
+  }, [chatClient]);
+
+  const handleCodeChange = (newCode) => {
+    setCode(newCode ?? "");
+
+    // if we're applying a remote edit, don't broadcast it
+    if (isApplyingRemoteEdit.current) return;
+
+    // debounce broadcast
+    if (editorBroadcastTimeout.current) clearTimeout(editorBroadcastTimeout.current);
+    editorBroadcastTimeout.current = setTimeout(async () => {
+      try {
+        if (channel && channel.sendMessage) {
+          await channel.sendMessage({
+            text: "",
+            silent: true,
+            custom: {
+              type: "editor_update",
+              code: newCode,
+              language: selectedLanguage,
+            },
+          });
+        }
+      } catch (e) {
+        console.error("Failed to broadcast editor update:", e);
+      }
+    }, 300);
+  };
+
   const handleCopyInviteLink = async () => {
     try {
-      await navigator.clipboard.writeText(window.location.href);
-      toast.success("Invite link copied");
+      const textToCopy = session?.callId ? session.callId : window.location.href;
+      await navigator.clipboard.writeText(textToCopy);
+      toast.success(session?.callId ? "Session code copied" : "Invite link copied");
     } catch {
       toast.error("Could not copy invite link");
     }
@@ -143,7 +253,7 @@ function SessionPage() {
                           </span>
                         )}
 
-                        {session?.status === "active" && (
+                        {isHost && session?.status === "active" && (
                           <button
                             onClick={handleCopyInviteLink}
                             className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 hover:border-purple-400 hover:text-purple-600 dark:hover:text-purple-300 transition-all duration-200 hover:-translate-y-0.5 active:scale-95"
@@ -152,6 +262,8 @@ function SessionPage() {
                             Copy Invite
                           </button>
                         )}
+
+                        {/* single copy button now handles both invite link and code */}
 
                         {isHost && session?.status === "active" && (
                           <button
@@ -270,13 +382,16 @@ function SessionPage() {
                       code={code}
                       isRunning={isRunning}
                       onLanguageChange={handleLanguageChange}
-                      onCodeChange={(value) => setCode(value)}
+                      onCodeChange={handleCodeChange}
+                      onEditorMount={(editor) => {
+                        editorInstanceRef.current = editor;
+                      }}
                       onRunCode={handleRunCode}
                     />
                   </Panel>
                   <PanelResizeHandle className="h-1.5 bg-zinc-800 hover:bg-purple-600 transition-colors duration-150 cursor-row-resize" />
                   <Panel defaultSize={30} minSize={15}>
-                    <OutputPanel output={output} />
+                    <OutputPanel output={output} remoteRun={remoteRun} />
                   </Panel>
                 </PanelGroup>
               </Panel>
@@ -318,7 +433,7 @@ function SessionPage() {
                 <div className="h-full">
                   <StreamVideo client={streamClient}>
                     <StreamCall call={call}>
-                      <VideoCallUI chatClient={chatClient} channel={channel} />
+                      <VideoCallUI chatClient={chatClient} channel={channel} sessionId={session?._id} />
                     </StreamCall>
                   </StreamVideo>
                 </div>

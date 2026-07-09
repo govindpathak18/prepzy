@@ -34,7 +34,9 @@ export const resumeUpload = multer({
   },
   fileFilter: (_req, file, callback) => {
     if (!allowedMimeTypes.has(file.mimetype)) {
-      return callback(new Error("Resume must be a PDF, DOCX, or TXT file"));
+      const error = new Error("Resume must be a PDF, DOCX, or TXT file");
+      error.statusCode = 400;
+      return callback(error);
     }
 
     callback(null, true);

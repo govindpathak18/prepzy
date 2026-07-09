@@ -1,6 +1,6 @@
 import { CheckCircleIcon, XCircleIcon, TerminalIcon, ClockIcon } from "lucide-react";
 
-function OutputPanel({ output }) {
+function OutputPanel({ output, remoteRun }) {
   return (
     <div className="h-full flex flex-col rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-800">
 
@@ -29,6 +29,18 @@ function OutputPanel({ output }) {
 
       {/* BODY */}
       <div className="flex-1 overflow-auto p-4 bg-zinc-950 font-mono text-sm">
+        {remoteRun && (
+          <div className="mb-4 p-3 border border-zinc-800 rounded-lg bg-zinc-900">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-xs text-zinc-400">Remote run by <span className="font-medium text-zinc-200">{remoteRun.user}</span></div>
+              <div className="text-xs text-zinc-400">{remoteRun.language}</div>
+            </div>
+            <div className="text-sm text-zinc-300 whitespace-pre-wrap">{remoteRun.code}</div>
+            <div className="pt-3 text-xs text-zinc-500 border-t border-zinc-800">
+              {remoteRun.success ? "Passed" : "Failed"} • Executed in {remoteRun.executionTime ?? "?"}s
+            </div>
+          </div>
+        )}
         {output === null ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
             <TerminalIcon className="size-8 text-zinc-700" />

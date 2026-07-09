@@ -23,8 +23,26 @@ export const useActiveSessions = () => {
 
   return useQuery({
     queryKey: ["activeSessions"],
-    queryFn: async () => sessionApi.getActiveSessions(await getToken()),
+    // fetch only the sessions created by the logged in user
+    queryFn: async () => sessionApi.getMyActiveSessions(await getToken()),
     refetchInterval: 10000, // refresh every 10s to show new sessions
+  });
+};
+
+export const useJoinByCode = () => {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (code) => sessionApi.joinByCode(code, await getToken()),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["activeSessions"] });
+      if (data?.session?._id) {
+        queryClient.invalidateQueries({ queryKey: ["session", data.session._id] });
+      }
+      toast.success("Joined session successfully!");
+    },
+    onError: (error) => toast.error(error.response?.data?.message || "Failed to join session"),
   });
 };
 
@@ -81,5 +99,22 @@ export const useEndSession = () => {
       toast.success("Session ended successfully!");
     },
     onError: (error) => toast.error(error.response?.data?.message || "Failed to end session"),
+  });
+};
+
+export const useLeaveSession = () => {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id) => sessionApi.leaveSession(id, await getToken()),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["activeSessions"] });
+      if (data?.session?._id) {
+        queryClient.invalidateQueries({ queryKey: ["session", data.session._id] });
+      }
+      toast.success(data?.message || "Left session");
+    },
+    onError: (error) => toast.error(error.response?.data?.message || "Failed to leave session"),
   });
 };

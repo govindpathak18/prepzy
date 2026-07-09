@@ -15,6 +15,11 @@ export const sessionApi = {
     return response.data;
   },
 
+  getMyActiveSessions: async (token) => {
+    const response = await axiosInstance.get("/sessions/my-active", authConfig(token));
+    return response.data;
+  },
+
   getMyRecentSessions: async (token) => {
     const response = await axiosInstance.get("/sessions/my-recent", authConfig(token));
     return response.data;
@@ -27,6 +32,16 @@ export const sessionApi = {
 
   joinSession: async (id, token) => {
     const response = await axiosInstance.post(`/sessions/${id}/join`, undefined, authConfig(token));
+    return response.data;
+  },
+
+  joinByCode: async (code, token) => {
+    const response = await axiosInstance.post(`/sessions/join-by-code`, { code }, authConfig(token));
+    return response.data;
+  },
+
+  leaveSession: async (id, token) => {
+    const response = await axiosInstance.post(`/sessions/${id}/leave`, undefined, authConfig(token));
     return response.data;
   },
 
