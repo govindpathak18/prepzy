@@ -21,10 +21,19 @@ const allowedOrigins = [
   "https://localhost:5173",
 ];
 
+const isAllowedOrigin = (origin) => {
+  if (!origin) return true;
+
+  if (allowedOrigins.includes(origin)) return true;
+  if (/^https:\/\/.*\.vercel\.app$/i.test(origin)) return true;
+
+  return false;
+};
+
 app.use(
   cors({
     origin: (incomingOrigin, callback) => {
-      if (!incomingOrigin || allowedOrigins.includes(incomingOrigin)) {
+      if (isAllowedOrigin(incomingOrigin)) {
         return callback(null, true);
       }
 
