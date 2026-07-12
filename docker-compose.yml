@@ -1,0 +1,49 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    image: ${DOCKERHUB_USERNAME:-prepzy}/backend:latest
+    container_name: prepzy-backend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - backend/.env
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DB_URL: mongodb://mongo:27017/prepzy
+      CLIENT_URL: http://localhost:5173
+      INNGEST_EVENT_KEY: ${INNGEST_EVENT_KEY:-dummy}
+      INNGEST_SIGNING_KEY: ${INNGEST_SIGNING_KEY:-dummy}
+      STREAM_API_KEY: ${STREAM_API_KEY:-dummy}
+      STREAM_API_SECRET: ${STREAM_API_SECRET:-dummy}
+    depends_on:
+      - mongo
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    image: ${DOCKERHUB_USERNAME:-prepzy}/frontend:latest
+    container_name: prepzy-frontend
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    env_file:
+      - frontend/.env
+    depends_on:
+      - backend
+
+  mongo:
+    image: mongo:7.0
+    container_name: prepzy-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+volumes:
+  mongo-data:
