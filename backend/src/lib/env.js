@@ -15,7 +15,9 @@ const requiredEnvVars = [
   "CLERK_SECRET_KEY",
 ];
 
+// Check for missing required environment variables and exit if any are missing
 const missingVars = requiredEnvVars.filter((v) => !process.env[v]);
+
 if (missingVars.length > 0) {
   console.error(
     "❌ Missing required environment variables:",

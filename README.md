@@ -70,8 +70,6 @@ Prepzy is a collaborative coding platform built for live pair programming, inter
   - Create a new live session.
   - Requires `problem` and `difficulty` in the request body.
   - Creates a Stream video call and chat channel.
-- `GET /api/sessions/active`
-  - Returns all currently active sessions.
 - `GET /api/sessions/my-active`
   - Returns active sessions for the current authenticated user.
 - `GET /api/sessions/my-recent`

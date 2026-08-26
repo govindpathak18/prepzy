@@ -1,10 +1,11 @@
 import express from "express";
+import mongoose from "mongoose";
 import { ProtectRoute } from "../middlewares/protectRoutes.js";
+import { sensitiveActionLimiter } from "../lib/rateLimit.js";
 import {
      createSession,
      deletePastSession,
      endSession,
-     getActiveSessions,
      getMyRecentSessions,
      getSessionById,
      joinSession,
@@ -15,13 +16,21 @@ import {
 
 const router = express.Router();
 
+// Validates :id once for every route below that uses it, instead of each
+// controller repeating (or forgetting) the check - a malformed id now
+// consistently returns 400 instead of falling through to a generic 500.
+router.param("id", (_req, res, next, id) => {
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: "Invalid session id" });
+  }
+  next();
+});
 
-router.post("/", ProtectRoute, createSession) //create session => post route
-router.get("/active", ProtectRoute, getActiveSessions) //get the active/live sessions
+router.post("/", ProtectRoute, sensitiveActionLimiter, createSession) //create session => post route
 router.get("/my-active", ProtectRoute, getMyActiveSessions) // get active sessions for current user
 router.get("/my-recent", ProtectRoute, getMyRecentSessions) //get the completed/past sessions
 
-router.post("/join-by-code", ProtectRoute, joinByCode) // join session by code
+router.post("/join-by-code", ProtectRoute, sensitiveActionLimiter, joinByCode) // join session by code
 
 router.post("/:id/leave", ProtectRoute, leaveSession) // participant leaves the session
 

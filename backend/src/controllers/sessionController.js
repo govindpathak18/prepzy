@@ -1,17 +1,20 @@
-import { chatClient, streamClient } from "../lib/stream.js";
+import { chatClient, streamClient, upsertStreamUser } from "../lib/stream.js";
 import Session from "../models/Session.js";
-import mongoose from "mongoose";
 
 const VALID_DIFFICULTIES = new Set(["easy", "medium", "hard"]);
 
+// populate a session with host and participant details
 async function populateSession(sessionId) {
   return Session.findById(sessionId)
     .populate("host", "name profileImage email clerkId")
     .populate("participant", "name profileImage email clerkId");
 }
 
+// Thin wrapper around the shared upsertStreamUser (lib/stream.js) so call
+// sites here can just pass a Mongo user document instead of building the
+// {id, name, image} shape themselves each time.
 async function ensureStreamUser(user) {
-  await chatClient.upsertUser({
+  await upsertStreamUser({
     id: user.clerkId,
     name: user.name,
     image: user.profileImage,
@@ -21,8 +24,7 @@ async function ensureStreamUser(user) {
 export async function createSession(req, res) {
   try {
     const problem = typeof req.body.problem === "string" ? req.body.problem.trim() : "";
-    const difficulty =
-      typeof req.body.difficulty === "string" ? req.body.difficulty.toLowerCase() : "";
+    const difficulty = typeof req.body.difficulty === "string" ? req.body.difficulty.toLowerCase() : "";
     const userId = req.user._id;
     const clerkId = req.user.clerkId;
 
@@ -36,36 +38,61 @@ export async function createSession(req, res) {
 
     const callId = `session_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
-    await ensureStreamUser(req.user);
+   // Track whether we successfully created Stream resources so we can clean up
+    let videoCallCreated = false;
+    let chatChannelCreated = false;
 
-    // Create Stream video call
-    await streamClient.video.call("default", callId).getOrCreate({
-      data: {
+    try {
+      await ensureStreamUser(req.user);
+
+      // Create Stream video call
+      await streamClient.video.call("default", callId).getOrCreate({
+        data: {
+          created_by_id: clerkId,
+          custom: { problem, difficulty },
+        },
+      });
+      videoCallCreated = true;
+
+      // Create Stream chat channel
+      const channel = chatClient.channel("messaging", callId, {
+        name: `${problem} Session`,
         created_by_id: clerkId,
-        custom: { problem, difficulty },
-      },
-    });
+        members: [clerkId],
+      });
+      await channel.create();
+      chatChannelCreated = true;
 
-    // Create Stream chat channel
-    const channel = chatClient.channel("messaging", callId, {
-      name: `${problem} Session`,
-      created_by_id: clerkId,
-      members: [clerkId],
-    });
+      // Only after Stream succeeds → save session in DB
+      const createdSession = await Session.create({
+        problem,
+        difficulty,
+        host: userId,
+        callId,
+      });
 
-    await channel.create();
+      const session = await populateSession(createdSession._id);
 
-    // Only after Stream succeeds → save session in DB
-    const createdSession = await Session.create({
-      problem,
-      difficulty,
-      host: userId,
-      callId,
-    });
+      res.status(201).json({ session });
+    } catch (error) {
+      // If we created any Stream resources but then failed to save the session in DB,
+      if (chatChannelCreated) {
+        try {
+          await chatClient.channel("messaging", callId).delete();
+        } catch (cleanupError) {
+          console.error("Failed to clean up orphaned Stream channel:", cleanupError);
+        }
+      }
+      if (videoCallCreated) {
+        try {
+          await streamClient.video.call("default", callId).delete({ hard: true });
+        } catch (cleanupError) {
+          console.error("Failed to clean up orphaned Stream video call:", cleanupError);
+        }
+      }
 
-    const session = await populateSession(createdSession._id);
-
-    res.status(201).json({ session });
+      throw error;
+    }
   } catch (error) {
     console.error("Error in createSession controller:", error);
     res.status(500).json({
@@ -74,26 +101,18 @@ export async function createSession(req, res) {
   }
 }
 
-export async function getActiveSessions(_, res) {
-  try {
-    const sessions = await Session.find({ status: "active" })
-      .populate("host", "name profileImage email clerkId")
-      .populate("participant", "name profileImage email clerkId")
-      .sort({ createdAt: -1 })
-      .limit(20);
-
-    res.status(200).json({ sessions });
-  } catch (error) {
-    console.log("Error in getActiveSessions controller:", error.message);
-    res.status(500).json({ message: "Internal Server Error" });
-  }
-}
-
+// get all active sessions for the authenticated user (host or participant)
 export async function getMyActiveSessions(req, res) {
   try {
     const userId = req.user._id;
 
-    const sessions = await Session.find({ status: "active", host: userId })
+    // host OR participant -> same "sessions relevant to me" shape as
+    // getMyRecentSessions below, so a session you joined (not just one you
+    // created) still shows up here and can be rejoined.
+    const sessions = await Session.find({
+      status: "active",
+      $or: [{ host: userId }, { participant: userId }],
+    })
       .populate("host", "name profileImage email clerkId")
       .populate("participant", "name profileImage email clerkId")
       .sort({ createdAt: -1 })
@@ -106,6 +125,7 @@ export async function getMyActiveSessions(req, res) {
   }
 }
 
+// join a sessison as a participant by session code (callId)
 export async function joinByCode(req, res) {
   try {
     const { code } = req.body;
@@ -130,13 +150,9 @@ export async function joinByCode(req, res) {
 
     if (session.participant) return res.status(409).json({ message: "Session is full" });
 
-    try {
-      await ensureStreamUser(req.user);
-      const channel = chatClient.channel("messaging", session.callId);
-      await channel.addMembers([clerkId]);
-    } catch (channelError) {
-      throw channelError;
-    }
+    await ensureStreamUser(req.user);
+    const channel = chatClient.channel("messaging", session.callId);
+    await channel.addMembers([clerkId]);
 
     session.participant = userId;
     await session.save();
@@ -150,6 +166,7 @@ export async function joinByCode(req, res) {
   }
 }
 
+// get all completed sessions for the authenticated user (host or participant)
 export async function getMyRecentSessions(req, res) {
   try {
     const userId = req.user._id;
@@ -162,7 +179,7 @@ export async function getMyRecentSessions(req, res) {
       .populate("host", "name profileImage email clerkId")
       .populate("participant", "name profileImage email clerkId")
       .sort({ createdAt: -1 })
-      .limit(7);
+      .limit(10);
 
     res.status(200).json({ sessions, total });
   } catch (error) {
@@ -208,13 +225,9 @@ export async function joinSession(req, res) {
 
     if (session.participant) return res.status(409).json({ message: "Session is full" });
 
-    try {
-      await ensureStreamUser(req.user);
-      const channel = chatClient.channel("messaging", session.callId);
-      await channel.addMembers([clerkId]);
-    } catch (channelError) {
-      throw channelError;
-    }
+    await ensureStreamUser(req.user);
+    const channel = chatClient.channel("messaging", session.callId);
+    await channel.addMembers([clerkId]);
 
     session.participant = userId;
     await session.save();
@@ -245,13 +258,24 @@ export async function endSession(req, res) {
       return res.status(400).json({ message: "Session is already completed" });
     }
 
-    // Delete Stream video call
-    const call = streamClient.video.call("default", session.callId);
-    await call.delete({ hard: true });
+    // Delete Stream video call and chat channel, but don't let a failure
+    // here block marking the session completed - a resource that's already
+    // gone (e.g. a retried end after a previous partial failure) would
+    // otherwise throw again on every retry, leaving the session stuck
+    // "active" forever with no way to successfully end it.
+    try {
+      const call = streamClient.video.call("default", session.callId);
+      await call.delete({ hard: true });
+    } catch (cleanupError) {
+      console.error("Failed to delete Stream video call on end:", cleanupError);
+    }
 
-    // Delete Stream chat channel
-    const channel = chatClient.channel("messaging", session.callId);
-    await channel.delete();
+    try {
+      const channel = chatClient.channel("messaging", session.callId);
+      await channel.delete();
+    } catch (cleanupError) {
+      console.error("Failed to delete Stream chat channel on end:", cleanupError);
+    }
 
     session.status = "completed";
     await session.save();
@@ -268,10 +292,8 @@ export async function deletePastSession(req, res) {
     const { id } = req.params;
     const userId = req.user._id;
 
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ message: "Invalid session id" });
-    }
-
+    // id format is already validated by router.param("id", ...) in
+    // sessionRoutes.js before this handler ever runs.
     const session = await Session.findById(id);
 
     if (!session) return res.status(404).json({ message: "Session not found" });

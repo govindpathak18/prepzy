@@ -10,11 +10,6 @@ export const sessionApi = {
     return response.data;
   },
 
-  getActiveSessions: async (token) => {
-    const response = await axiosInstance.get("/sessions/active", authConfig(token));
-    return response.data;
-  },
-
   getMyActiveSessions: async (token) => {
     const response = await axiosInstance.get("/sessions/my-active", authConfig(token));
     return response.data;
